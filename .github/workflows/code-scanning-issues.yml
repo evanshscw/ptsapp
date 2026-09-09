@@ -56,7 +56,7 @@ jobs:
               return severities.has(severity);
             });
 
-            core.info(`Found ${targets.length} open High/Critical alert(s).`);
+            core.info(`共发现 ${targets.length} 条打开的 High/Critical 告警。`);
 
             const existingIssues = await github.paginate(
               github.rest.issues.listForRepo,
@@ -79,18 +79,23 @@ jobs:
               }
             }
 
+            const severityLabel = {
+              critical: "严重",
+              high: "高危",
+            };
+
             // Ensure labels exist (ignore if already present)
             for (const label of [
-              { name: "security", color: "B60205", description: "Security related" },
-              { name: "code-scanning", color: "5319E7", description: "From GitHub code scanning" },
-              { name: "high", color: "D93F0B", description: "High severity" },
-              { name: "critical", color: "B60205", description: "Critical severity" },
+              { name: "security", color: "B60205", description: "安全相关" },
+              { name: "code-scanning", color: "5319E7", description: "来自 GitHub 代码扫描" },
+              { name: "high", color: "D93F0B", description: "高危" },
+              { name: "critical", color: "B60205", description: "严重" },
             ]) {
               try {
                 await github.rest.issues.createLabel({ owner, repo, ...label });
               } catch (error) {
                 if (error.status !== 422) {
-                  core.warning(`Could not create label ${label.name}: ${error.message}`);
+                  core.warning(`无法创建标签 ${label.name}: ${error.message}`);
                 }
               }
             }
@@ -98,7 +103,7 @@ jobs:
             let created = 0;
             for (const alert of targets) {
               if (tracked.has(alert.number)) {
-                core.info(`Skip alert #${alert.number}: issue already exists`);
+                core.info(`跳过告警 #${alert.number}：对应 Issue 已存在`);
                 continue;
               }
 
@@ -107,44 +112,47 @@ jobs:
                 alert.rule?.severity ||
                 "unknown"
               ).toLowerCase();
+              const severityZh = severityLabel[severity] || severity.toUpperCase();
               const ruleId = alert.rule?.id || "unknown-rule";
               const ruleDesc =
                 alert.rule?.description ||
                 alert.rule?.name ||
-                "Security finding";
+                "安全发现问题";
               const location = alert.most_recent_instance?.location;
-              const path = location?.path || "unknown";
+              const path = location?.path || "未知路径";
               const startLine = location?.start_line;
               const locText =
                 startLine != null ? `${path}:${startLine}` : path;
               const tool = alert.tool?.name || "code scanning";
               const alertUrl = alert.html_url;
 
-              const title = `[${severity.toUpperCase()}] ${ruleDesc} (${ruleId})`;
+              const title = `[${severityZh}] ${ruleDesc} (${ruleId})`;
               const body = [
                 `${markerPrefix}${alert.number} -->`,
                 "",
-                `## Code scanning alert #${alert.number}`,
+                `## 代码扫描告警 #${alert.number}`,
                 "",
-                `| Field | Value |`,
+                `| 字段 | 内容 |`,
                 `| --- | --- |`,
-                `| Severity | \`${severity}\` |`,
-                `| Rule | \`${ruleId}\` |`,
-                `| Tool | ${tool} |`,
-                `| Location | \`${locText}\` |`,
-                `| Alert | ${alertUrl} |`,
+                `| 严重级别 | ${severityZh} (\`${severity}\`) |`,
+                `| 规则 | \`${ruleId}\` |`,
+                `| 扫描工具 | ${tool} |`,
+                `| 位置 | \`${locText}\` |`,
+                `| 告警链接 | ${alertUrl} |`,
                 "",
-                "### Description",
+                "### 问题说明",
                 "",
                 ruleDesc,
                 "",
-                "### Next steps",
+                "> 说明：规则原文由 CodeQL/Codacy 提供，通常为英文。",
                 "",
-                "1. Review the alert details in the Security tab.",
-                "2. Confirm exploitability / false positive.",
-                "3. Fix in a PR or dismiss with a reason if not applicable.",
+                "### 处理建议",
                 "",
-                "_Auto-created by the Code Scanning Issues workflow._",
+                "1. 在 Security → Code scanning 中查看完整告警详情。",
+                "2. 确认是否可利用，或判断是否为误报。",
+                "3. 通过 PR 修复；若不适用，在告警中关闭并填写原因。",
+                "",
+                "_本 Issue 由 Code Scanning Issues 工作流自动创建。_",
               ].join("\n");
 
               const labels = ["security", "code-scanning", severity];
@@ -158,8 +166,8 @@ jobs:
 
               created += 1;
               core.info(
-                `Created issue #${issue.data.number} for alert #${alert.number}`
+                `已为告警 #${alert.number} 创建 Issue #${issue.data.number}`
               );
             }
 
-            core.info(`Done. Created ${created} new issue(s).`);
+            core.info(`完成。新创建 ${created} 个 Issue。`);
