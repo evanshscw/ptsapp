@@ -11,7 +11,8 @@ services:
     volumes:
       - ../ruoyi-fastapi-frontend/bin/nginx.dockermy.conf:/etc/nginx/conf.d/default.conf
     depends_on:
-      - ruoyi-backend-my
+      ruoyi-backend-my:
+        condition: service_started
     networks:
       - ruoyi-network-test
 
@@ -27,6 +28,7 @@ services:
     environment:
       TRANSPORT_CRYPTO_ENABLED: "false"
       TRANSPORT_CRYPTO_MODE: "off"
+    restart: on-failure:10
     depends_on:
       ruoyi-mysql:
         condition: service_healthy
@@ -51,10 +53,18 @@ services:
     networks:
       - ruoyi-network-test
     healthcheck:
-      test: ["CMD", "bash", "-c", "mysqladmin ping -h localhost -u root -proot && mysql -h localhost -u root -proot -e 'SELECT 1'"]
+      # 使用 127.0.0.1 强制走 TCP，并校验目标库可用，避免 init 未完成就放行
+      test:
+        [
+          "CMD",
+          "bash",
+          "-c",
+          "mysqladmin ping -h 127.0.0.1 -u root -proot --silent && mysql -h 127.0.0.1 -u root -proot -e \"SELECT 1 FROM information_schema.schemata WHERE schema_name='ruoyi-fastapi'\" | grep -q ruoyi-fastapi",
+        ]
       interval: 5s
       timeout: 10s
-      retries: 30
+      retries: 60
+      start_period: 90s
 
   # Redis服务
   ruoyi-redis:
@@ -69,6 +79,7 @@ services:
       interval: 5s
       timeout: 10s
       retries: 30
+      start_period: 5s
 
 # 网络配置
 networks:
