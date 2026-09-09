@@ -84,6 +84,39 @@ jobs:
               high: "高危",
             };
 
+            // CodeQL / Codacy 规则中文说明（按 rule id 优先，其次英文描述）
+            const ruleZhById = {
+              "py/weak-sensitive-data-hashing":
+                "对敏感数据使用了脆弱或弱加密哈希算法",
+              "js/incomplete-sanitization": "字符串转义或不完整编码",
+              "js/prototype-pollution-utility": "存在原型污染风险的工具函数",
+              "js/clear-text-cookie": "敏感 Cookie 以明文方式传输",
+              "py/stack-trace-exposure": "通过异常信息泄露内部细节",
+              "actions/missing-workflow-permissions":
+                "工作流未声明最小权限 permissions",
+            };
+            const ruleZhByDesc = {
+              "Use of a broken or weak cryptographic hashing algorithm on sensitive data":
+                "对敏感数据使用了脆弱或弱加密哈希算法",
+              "Incomplete string escaping or encoding": "字符串转义或不完整编码",
+              "Prototype-polluting function": "存在原型污染风险的工具函数",
+              "Clear text transmission of sensitive cookie":
+                "敏感 Cookie 以明文方式传输",
+              "Information exposure through an exception":
+                "通过异常信息泄露内部细节",
+              "Workflow does not contain permissions":
+                "工作流未声明最小权限 permissions",
+            };
+
+            function localizeRule(ruleId, ruleDesc) {
+              return (
+                ruleZhById[ruleId] ||
+                ruleZhByDesc[ruleDesc] ||
+                ruleDesc ||
+                "安全发现问题"
+              );
+            }
+
             // Ensure labels exist (ignore if already present)
             for (const label of [
               { name: "security", color: "B60205", description: "安全相关" },
@@ -114,10 +147,11 @@ jobs:
               ).toLowerCase();
               const severityZh = severityLabel[severity] || severity.toUpperCase();
               const ruleId = alert.rule?.id || "unknown-rule";
-              const ruleDesc =
+              const ruleDescEn =
                 alert.rule?.description ||
                 alert.rule?.name ||
-                "安全发现问题";
+                "Security finding";
+              const ruleDescZh = localizeRule(ruleId, ruleDescEn);
               const location = alert.most_recent_instance?.location;
               const path = location?.path || "未知路径";
               const startLine = location?.start_line;
@@ -126,7 +160,7 @@ jobs:
               const tool = alert.tool?.name || "code scanning";
               const alertUrl = alert.html_url;
 
-              const title = `[${severityZh}] ${ruleDesc} (${ruleId})`;
+              const title = `[${severityZh}] ${ruleDescZh} (${ruleId})`;
               const body = [
                 `${markerPrefix}${alert.number} -->`,
                 "",
@@ -142,9 +176,9 @@ jobs:
                 "",
                 "### 问题说明",
                 "",
-                ruleDesc,
+                ruleDescZh,
                 "",
-                "> 说明：规则原文由 CodeQL/Codacy 提供，通常为英文。",
+                `原文：${ruleDescEn}`,
                 "",
                 "### 处理建议",
                 "",
