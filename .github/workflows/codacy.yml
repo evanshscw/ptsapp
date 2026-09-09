@@ -53,6 +53,8 @@ jobs:
           # Force 0 exit code to allow SARIF file generation
           # This will handover control about PR rejection to the GitHub side
           max-allowed-issues: 2147483647
+          # Keep the job green when optional tools fail (e.g. PMD on non-Java code)
+          fail-if-incomplete: false
 
       # Upload the SARIF file generated in the previous step
       - name: Upload SARIF results file
