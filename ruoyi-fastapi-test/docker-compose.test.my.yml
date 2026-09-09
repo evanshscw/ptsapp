@@ -53,13 +53,13 @@ services:
     networks:
       - ruoyi-network-test
     healthcheck:
-      # 使用 127.0.0.1 强制走 TCP，并校验目标库可用，避免 init 未完成就放行
+      # 使用 127.0.0.1 强制走 TCP，并确认目标库可 USE（init 完成后才算 healthy）
       test:
         [
           "CMD",
           "bash",
           "-c",
-          "mysqladmin ping -h 127.0.0.1 -u root -proot --silent && mysql -h 127.0.0.1 -u root -proot -e \"SELECT 1 FROM information_schema.schemata WHERE schema_name='ruoyi-fastapi'\" | grep -q ruoyi-fastapi",
+          "mysqladmin ping -h 127.0.0.1 -uroot -proot --silent && mysql -h 127.0.0.1 -uroot -proot -e 'USE `ruoyi-fastapi`; SELECT 1'",
         ]
       interval: 5s
       timeout: 10s

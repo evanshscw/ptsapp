@@ -34,30 +34,37 @@ jobs:
     name: Codacy Security Scan
     runs-on: ubuntu-latest
     steps:
-      # Checkout the repository to the GitHub Actions runner
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # Execute Codacy Analysis CLI and generate a SARIF output with the security issues identified during the analysis
+      # Codacy CLI 在生成 SARIF 时可能因编码问题崩溃（已知上游问题）。
+      # 显式传入布尔入参，避免空值触发 [: =: unary operator expected]。
       - name: Run Codacy Analysis CLI
+        id: codacy
+        continue-on-error: true
         uses: codacy/codacy-analysis-cli-action@d840f886c4bd4edc059706d09c6a1586111c540b
         with:
-          # Check https://github.com/codacy/codacy-analysis-cli#project-token to get your project token from your Codacy repository
-          # You can also omit the token and run the tools that support default configurations
           project-token: ${{ secrets.CODACY_PROJECT_TOKEN }}
           verbose: true
           output: results.sarif
           format: sarif
-          # Adjust severity of non-security issues
           gh-code-scanning-compat: true
-          # Force 0 exit code to allow SARIF file generation
-          # This will handover control about PR rejection to the GitHub side
           max-allowed-issues: 2147483647
-          # Keep the job green when optional tools fail (e.g. PMD on non-Java code)
           fail-if-incomplete: false
+          upload: false
+          allow-network: false
+          force-file-permissions: false
 
-      # Upload the SARIF file generated in the previous step
       - name: Upload SARIF results file
+        if: hashFiles('results.sarif') != ''
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: results.sarif
+
+      - name: Report Codacy CLI status
+        run: |
+          if [ "${{ steps.codacy.outcome }}" != "success" ]; then
+            echo "::warning::Codacy Analysis CLI did not complete successfully (outcome=${{ steps.codacy.outcome }}). CodeQL remains the primary security scan."
+          else
+            echo "Codacy Analysis CLI completed successfully."
+          fi
