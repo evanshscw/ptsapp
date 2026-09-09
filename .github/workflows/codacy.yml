@@ -37,8 +37,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # Codacy CLI 在生成 SARIF 时可能因编码问题崩溃（已知上游问题）。
-      # 显式传入布尔入参，避免空值触发 [: =: unary operator expected]。
+      # Codacy CLI 在生成 SARIF 时可能因编码问题崩溃（已知上游问题），留下残缺 JSON。
       - name: Run Codacy Analysis CLI
         id: codacy
         continue-on-error: true
@@ -55,16 +54,35 @@ jobs:
           allow-network: false
           force-file-permissions: false
 
+      - name: Validate SARIF output
+        id: sarif
+        run: |
+          if [ ! -f results.sarif ]; then
+            echo "valid=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::results.sarif was not created."
+            exit 0
+          fi
+          if python3 -c 'import json,sys; json.load(open("results.sarif", encoding="utf-8"))'; then
+            echo "valid=true" >> "$GITHUB_OUTPUT"
+            echo "SARIF is valid."
+          else
+            echo "valid=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::results.sarif is truncated/invalid (Codacy SARIF generation failed). Skipping upload. CodeQL remains the primary security scan."
+            ls -la results.sarif || true
+            head -c 200 results.sarif || true
+          fi
+
       - name: Upload SARIF results file
-        if: hashFiles('results.sarif') != ''
+        if: steps.sarif.outputs.valid == 'true'
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: results.sarif
 
       - name: Report Codacy CLI status
+        if: always()
         run: |
-          if [ "${{ steps.codacy.outcome }}" != "success" ]; then
-            echo "::warning::Codacy Analysis CLI did not complete successfully (outcome=${{ steps.codacy.outcome }}). CodeQL remains the primary security scan."
-          else
-            echo "Codacy Analysis CLI completed successfully."
+          echo "Codacy CLI outcome: ${{ steps.codacy.outcome }}"
+          echo "SARIF valid: ${{ steps.sarif.outputs.valid }}"
+          if [ "${{ steps.sarif.outputs.valid }}" != "true" ]; then
+            echo "::notice::Codacy did not produce a usable SARIF. Security alerts continue to come from CodeQL."
           fi
