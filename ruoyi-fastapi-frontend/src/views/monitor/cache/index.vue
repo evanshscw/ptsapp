@@ -67,6 +67,7 @@
 <script setup name="Cache">
 import { getCache } from '@/api/monitor/cache';
 import * as echarts from 'echarts';
+import 'echarts/theme/macarons.js';
 
 const cache = ref([]);
 const commandstats = ref(null);
