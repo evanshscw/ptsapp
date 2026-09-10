@@ -33,6 +33,7 @@ from plugins.ai.entity.vo.ai_model_vo import AiModelModel
 from plugins.ai.utils.ai_util import AiUtil
 from utils.common_util import CamelCaseUtil
 from utils.crypto_util import CryptoUtil
+from utils.log_util import logger
 
 if TYPE_CHECKING:
     from agno.models.message import Message
@@ -270,7 +271,8 @@ class AiChatService:
                     full_response += content
                     yield json.dumps({'content': content, 'type': 'content'}) + '\n'
         except Exception as e:
-            yield json.dumps({'error': str(e), 'type': 'error'}) + '\n'
+            logger.exception(f'AI 对话流处理失败: {e}')
+            yield json.dumps({'error': '对话处理失败，请稍后重试', 'type': 'error'}) + '\n'
 
     @classmethod
     async def chat_services(

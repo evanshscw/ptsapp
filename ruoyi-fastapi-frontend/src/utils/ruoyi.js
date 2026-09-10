@@ -136,6 +136,10 @@ export function parseStrEmpty(str) {
 // 数据合并
 export function mergeRecursive(source, target) {
   for (var p in target) {
+    // 防止原型污染：跳过危险属性名
+    if (p === '__proto__' || p === 'constructor' || p === 'prototype') {
+      continue;
+    }
     try {
       if (target[p].constructor == Object) {
         source[p] = mergeRecursive(source[p], target[p]);

@@ -5,7 +5,9 @@
  * @returns {Boolean}
  */
 export function isPathMatch(pattern, path) {
-  const regexPattern = pattern
+  const regexPattern = String(pattern)
+    .replace(/\\/g, "\\\\")
+    .replace(/[.+^${}()|[\]]/g, "\\$&")
     .replace(/\//g, "\\/")
     .replace(/\*\*/g, ".*")
     .replace(/\*/g, "[^\\/]*");

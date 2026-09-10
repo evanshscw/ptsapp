@@ -9,6 +9,7 @@ from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from common.constant import HttpStatusConstant
 from config.env import AppConfig, TransportCryptoConfig
+from utils.log_util import logger
 from utils.transport_crypto_util import (
     DecryptedTransportEnvelope,
     TransportCryptoMonitorUtil,
@@ -123,11 +124,12 @@ class TransportCryptoMiddleware:
                 await TransportCryptoMonitorUtil.record_encrypted_response(current_app, error_kid, is_error=True)
             else:
                 await TransportCryptoMonitorUtil.record_plain_response(current_app)
+            logger.warning(f'传输层解密失败: {exc}')
             await self._send_error_response(
                 scope,
                 receive,
                 send,
-                str(exc) or '加密请求解析失败',
+                '加密请求解析失败',
                 error_crypto_context,
                 headers=self._build_monitor_headers(
                     request_mode='encrypted',

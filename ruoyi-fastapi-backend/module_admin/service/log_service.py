@@ -293,7 +293,8 @@ class LogQueueService:
         if not request_id:
             return uuid.uuid4().hex
         base = f'{request_id}:{log_type}:{source}'
-        return hashlib.md5(base.encode('utf-8')).hexdigest()
+        # 仅用于生成事件 ID，不用于口令存储；使用 SHA-256 避免弱哈希告警
+        return hashlib.sha256(base.encode('utf-8')).hexdigest()
 
     @classmethod
     async def _xadd_event(cls, redis: aioredis.Redis, event_type: str, payload: dict, source: str) -> None:
