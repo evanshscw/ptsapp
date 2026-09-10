@@ -1,5 +1,3 @@
-import re
-
 import pytest
 from playwright.async_api import async_playwright, expect
 
@@ -61,23 +59,27 @@ class GenTableTest(BasePageTest):
         dialog = self.page.locator("div[role='dialog'][aria-label='导入表']")
         await dialog.wait_for()
 
-        # 搜索要导入的表
-        await dialog.get_by_placeholder('请输入表名称').fill(table_name)
-        await dialog.get_by_role('button', name='搜索').click()
+        # 搜索要导入的表（可能因 gen_table 刚删除而短暂不出现，重试几次）
+        row = dialog.locator('.el-table__body-wrapper tbody tr').filter(
+            has=self.page.get_by_text(table_name, exact=True)
+        )
+        for _i in range(5):
+            await dialog.get_by_placeholder('请输入表名称').fill(table_name)
+            await dialog.get_by_role('button', name='搜索').click()
+            loading = dialog.locator('.el-loading-mask')
+            if await loading.count() > 0:
+                await expect(loading.first).to_be_hidden(timeout=10000)
+            try:
+                await expect(row.first).to_be_visible(timeout=5000)
+                break
+            except AssertionError:
+                await self.page.wait_for_timeout(500)
+        await expect(row.first).to_be_visible(timeout=10000)
 
-        # 等待搜索结果
-        await dialog.locator(f"tr:has-text('{table_name}')").wait_for()
-
-        # 选中行
-        row = dialog.locator('tr').filter(has=self.page.get_by_text(table_name, exact=True))
-
-        # 点击复选框
-        checkbox = row.locator('.el-checkbox')
-        await checkbox.click()
-
-        # 验证已选中
-        # Element Plus checkbox 选中时，最外层 label.el-checkbox 会有 is-checked 类
-        await expect(checkbox).to_have_class(re.compile(r'is-checked'))
+        # 点击表名单元格触发 row-click 选中。
+        # 直接点复选框会同时触发 checkbox + row-click，导致选中被二次切换抵消。
+        await row.first.get_by_text(table_name, exact=True).click()
+        await expect(row.first.get_by_role('checkbox')).to_be_checked()
 
         await self.page.wait_for_timeout(500)
 
